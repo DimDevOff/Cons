@@ -2,6 +2,7 @@
 Файл для перекладу
 File for translation
 """
+import logging
 from aiogram import types, Router
 from aiogram.fsm.context import FSMContext
 import translators.server as tss
@@ -73,38 +74,26 @@ async def text(message: types.Message, state: FSMContext):
     Статус для кінцевого перекладу
     Status for final translation
     """
+    if len(message.text) > 2000:
+        await message.reply("Ваше повідомлення занадто довге. Будь ласка, надішліть повідомлення до 2000 символів.")
+        return
+
     chat_id = message.chat.id
     text = message.text
     data = await state.get_data()
 
     try:
         await bot.send_message(chat_id=chat_id, text="Це може зайняти деякий час...")
-        match data.get("used_translator"):
-            case "google":
-                await bot.send_message(chat_id=chat_id, text=str(
-                    tss.google(text,
-                            to_language=str(data.get("language")))))
-            case "bing":
-                await bot.send_message(chat_id=chat_id, text=str(
-                    tss.bing(text,
-                            to_language=str(data.get("language")))))
-            case "yandex": # Does not work in Ukraine
-                await bot.send_message(chat_id=chat_id, text=str(
-                    tss.yandex(text,
-                            to_language=str(data.get("language")))))
-            case "youdao":
-                await bot.send_message(chat_id=chat_id, text=str(
-                    tss.youdao(text,
-                            to_language=str(data.get("language")))))
-            case "caiyun":
-                await bot.send_message(chat_id=chat_id, text=str(
-                    tss.caiyun(text,
-                            to_language=str(data.get("language")))))
-            case _:
-                await bot.send_message(chat_id=chat_id, text="Вибраний вами перекладач не знайдений\nнапишіть !report"
-                                                             " або /report з рекомендацією щоб я добавив цей "
-                                                             "перекладач")
+        translator_func = getattr(tss, data.get("used_translator"), None)
+        if translator_func:
+            translated_text = str(translator_func(text, to_language=str(data.get("language"))))
+            await bot.send_message(chat_id=chat_id, text=translated_text)
+        else:
+            await bot.send_message(chat_id=chat_id, text="Вибраний вами перекладач не знайдений\nнапишіть !report"
+                                                         " або /report з рекомендацією щоб я добавив цей "
+                                                         "перекладач")
     except Exception as ex:
-        await bot.send_message(chat_id=chat_id, text=f"Вибачте!\nСталася критична помилка.\n\nНазва помилки:{ex}")
+        logging.error(f"An unexpected error occurred in translator: {ex}")
+        await bot.send_message(chat_id=chat_id, text="Вибачте, сталася помилка під час перекладу.")
     finally:
         await state.clear()
