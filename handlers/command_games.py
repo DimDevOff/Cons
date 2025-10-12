@@ -3,13 +3,16 @@
 """
 from random import randint
 
-from aiogram.dispatcher import FSMContext
-from aiogram import Dispatcher, types
+from aiogram import Router, types
+from aiogram.fsm.context import FSMContext
 
 from create_bot import bot
 from states.games import Games
 
-async def games(message: types.Message):
+router = Router()
+
+@router.message(commands=["games"])
+async def games(message: types.Message, state: FSMContext):
     """
     Якщо користувач пише /games то бот відправляє повідомлення й переходе в стан сhoose_game
     """
@@ -18,9 +21,10 @@ async def games(message: types.Message):
             "1 - Камінь ножниці папір\n" \
             "2 - Вгадай число"
     await bot.send_message(chat_id=chat_id, text=text)
-    await Games.сhoose_game.set()
+    await state.set_state(Games.choose_game)
     
     
+@router.message(Games.choose_game)
 async def choose_game(message: types.Message, state: FSMContext):
     """
     Користувач пише число і його перекидує до відповідної гри
@@ -30,17 +34,18 @@ async def choose_game(message: types.Message, state: FSMContext):
     match choose_game:
         case "1":
             await bot.send_message(chat_id=chat_id, text="Виберіть число:\n1 - камінь\n2 - ножниці\n3 - папір")
-            await Games.rock_paper_scissors.set()
+            await state.set_state(Games.rock_paper_scissors)
         case "2":
             await bot.send_message(chat_id=chat_id, text="Число від -10 до 10 загадане! Щоб вийти наришіть \"Вийти\"")
-            await Games.guess_number.set()
+            await state.set_state(Games.guess_number)
         case "вийти":
             await bot.send_message(chat_id=chat_id, text="Ви вийшли з меню!")
-            await state.finish()
+            await state.clear()
         case _:
             await bot.send_message(chat_id=chat_id, text="Виберіть гру числом наприклад: 2")
 
 
+@router.message(Games.guess_number)
 async def game_guess_number(message: types.Message, state: FSMContext):
     chat_id = message.chat.id
     message_text = message.text
@@ -55,11 +60,12 @@ async def game_guess_number(message: types.Message, state: FSMContext):
     except:
         if message_text.lower() == "вийти":
             await bot.send_message(chat_id=chat_id, text="Ви вийшли!")
-            await state.finish()
+            await state.clear()
         else:
             await bot.send_message(chat_id=chat_id, text="Напишіть число")
 
 
+@router.message(Games.rock_paper_scissors)
 async def game_rock_paper_scissors(message: types.Message, state: FSMContext):
     chat_id = message.chat.id
     message_text = message.text.lower()
@@ -67,7 +73,7 @@ async def game_rock_paper_scissors(message: types.Message, state: FSMContext):
     match message_text:
         case "вийти":
             await bot.send_message(chat_id=chat_id, text="Ви вийшли з гри!")
-            await state.finish()
+            await state.clear()
         case _:
             try:
                 int(message_text)
@@ -102,10 +108,3 @@ def game_rock_paper_scissors_work(message_text, random_object):
                         return "🫱✌️\nВи програли!"
             case _:
                 return "Предмет не знайдений\nВиберіть число:\n1 - камінь\n2 - ножниці\n3 - папір"
-
-    
-def register_handler_games(dp: Dispatcher):
-    dp.register_message_handler(games, commands=["games"])
-    dp.register_message_handler(choose_game, state=Games.choose_game)
-    dp.register_message_handler(game_rock_paper_scissors, state=Games.rock_paper_scissors)
-    dp.register_message_handler(game_guess_number, state=Games.guess_number)

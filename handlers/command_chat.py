@@ -1,64 +1,70 @@
-from aiogram import Dispatcher, types
-from keyboards.chat import keyboard
-from aiogram.dispatcher import FSMContext
-import openai
+from aiogram import Router, types, F
+from aiogram.dispatcher.fsm.context import FSMContext
+from aiogram.enums.parse_mode import ParseMode
+from openai import OpenAI
 import translators.server as tss
 
+from keyboards.chat import keyboard
 from create_bot import bot
 from states.chat import Chat
 import config
 
+router = Router()
 
-def answer_chat(text):
-    openai.api_key = config.OPENAI_TOKEN
+async def answer_chat(text):
+    client = OpenAI(api_key=config.OPENAI_TOKEN)
     try:
-        response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                            {"role": "system", "content": config.SYSTEM_MESSAGE},
-                            {"role": "user", "content": text},
-                        ],
-                    top_p=1,
-                    max_tokens=500
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": config.SYSTEM_MESSAGE},
+                {"role": "user", "content": text},
+            ],
+            top_p=1,
+            max_tokens=500
         )
-        return response['choices'][0]['message']['content'].replace("```", "**")
+        return response.choices[0].message.content.replace("```", "**")
     
     except Exception as ex:
-        if "That model is currently overloaded with other requests." in ex:
-            return f"Вибачте але зараз сервери перегруженні і вони не відповідають на запити."
+        if "That model is currently overloaded with other requests." in str(ex):
+            return "Вибачте але зараз сервери перегруженні і вони не відповідають на запити."
         else:
             return f"Вибачте але зараз виникла невідома помилка.\n" \
                    f"Спробуйте повторити питання пізніше.\nОпис помилки: {ex}"
     
 
+@router.callback_query(F.data == "delete")
 async def delete(callback_query: types.CallbackQuery):
     await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
 
 
-async def continue_chat(callback_query: types.CallbackQuery):
+@router.callback_query()
+async def continue_chat(callback_query: types.CallbackQuery, state: FSMContext):
     await bot.edit_message_text(chat_id=callback_query.message.chat.id,
                                 message_id=callback_query.message.message_id,
                                 text=callback_query.message.text + "\n\nДобре задавайте своє питання.")
-    await Chat.warning_and_start_chat.set()
+    await state.set_state(Chat.warning_and_start_chat)
 
 
+@router.message(Chat.warning_and_start_chat)
 async def chat(message: types.Message, state: FSMContext):
     chat_id = message.chat.id
     if message.text.lower() == "вийти":
-        await state.finish()
+        await state.clear()
     else:
         await bot.send_message(chat_id=chat_id, text="Зачекайте будь ласка, це може зайнняти деякий час.")
-        answer = answer_chat(message.text)
+        answer = await answer_chat(message.text)
         try:
             await bot.edit_message_text(chat_id=chat_id, message_id=message.message_id + 1, text=answer,
-                                        reply_markup=keyboard, parse_mode=types.ParseMode.MARKDOWN)
-            await state.finish()
+                                        reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+            await state.clear()
         except:
             await bot.send_message(chat_id=chat_id, text=answer, reply_markup=keyboard)
-            await state.finish()
+            await state.clear()
 
 
-async def warning_and_start_chat(message: types.Message):
+@router.message(commands=["chat"])
+async def warning_and_start_chat(message: types.Message, state: FSMContext):
     chat_id = message.chat.id
     user_id = message.from_user.id
     if user_id in config.PREMIUM_USERS:
@@ -68,15 +74,8 @@ async def warning_and_start_chat(message: types.Message):
                                     "А саме GPT може відповідати не правильно, криво і так далі.\n"
                                     "То вам рекомендується формулювати свої питання по різному.\n"
                                     "Добре задавайте своє питання.")
-        await Chat.warning_and_start_chat.set()
+        await state.set_state(Chat.warning_and_start_chat)
     else:
         await bot.send_message(chat_id=chat_id,
                                text="Вибачте але ви не в списку преміум користувачів!\n"
                                     "Зверніться до автора щоб вас додали до цього списку.")
-
-
-def register_handler_chat(dp: Dispatcher):
-    dp.register_callback_query_handler(delete, text="delete")
-    dp.register_callback_query_handler(continue_chat)
-    dp.register_message_handler(warning_and_start_chat, commands=["chat"])
-    dp.register_message_handler(chat, state=Chat.warning_and_start_chat)

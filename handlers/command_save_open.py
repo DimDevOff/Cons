@@ -21,11 +21,14 @@
 import json
 import logging
 
-from aiogram import types, Dispatcher
+from aiogram import types, Router
+from aiogram.filters import Command
 
 import config as cnf
 
+router = Router()
 
+@router.message(lambda message: message.text.startswith('@save') or message.text.startswith('@open'))
 async def save_open(message: types.Message):
     """
     Коли людина пише @save {текст}
@@ -89,11 +92,3 @@ async def save_open(message: types.Message):
     msg = f"https://t.me/{message.from_user.username}, {message.from_user.language_code}, {message.from_user.id}," \
           f" @{message.from_user.username}, {message.from_user.full_name}, chat id={chat_id} => {message.text}"
     logging.info(msg=msg)
-
-
-def register_handler_command_save_open(dp: Dispatcher):
-    """
-    Реєстрація save_open
-    Registration save_open
-    """
-    dp.register_message_handler(save_open)

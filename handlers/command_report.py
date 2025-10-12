@@ -2,12 +2,15 @@
 Файл для обробки репортів
 File for processing reports
 """
-from aiogram import types, Dispatcher
+from aiogram import types, Router
+from aiogram.filters import Command
 
 from create_bot import bot
 from config import ADMIN_ID
 
+router = Router()
 
+@router.message(Command("report"))
 async def report_command1(message: types.Message):
     """
     Коли у відповідь на негарне повідомлення пишуть /report то бот надсилає повідомлення адміну
@@ -32,6 +35,7 @@ async def report_command1(message: types.Message):
                                                         f"Текст повідомлення= {message.text}")
 
 
+@router.message(Command("report", prefix="!"))
 async def report_command2(message: types.Message):
     """
     Так само тільки коли пишуть !report
@@ -47,12 +51,3 @@ async def report_command2(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {message.from_user.full_name} робить репорт\n"
                                                         f"{message.url}"
                                                         f"Текст повідомлення= {message.text}")
-
-
-def register_handler_report(dp: Dispatcher):
-    """
-    Реєстрація report_command1 і report_command2
-    Registration of report_command1 and report_command2
-    """
-    dp.register_message_handler(report_command1, commands=["report"])
-    dp.register_message_handler(report_command2, commands=["report"], commands_prefix="!")

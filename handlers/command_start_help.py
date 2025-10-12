@@ -1,9 +1,11 @@
 """Файл для надішлення допомоги"""
-from aiogram import types, Dispatcher
+from aiogram import types, Router
 
 from create_bot import bot
 
+router = Router()
 
+@router.message(commands=["start", "help"])
 async def help(message: types.Message):
     """
     Функція для надішлення повідомлення з поясненням
@@ -24,12 +26,3 @@ async def help(message: types.Message):
                    "    /games: Міні ігри\n" \
                    "    /rate: Курс валют вуд НБУ API"
     await bot.send_message(chat_id=chat_id, text=help_message)
-
-
-def register_handler_help(dp: Dispatcher):
-    """
-    Функція регістрації help
-
-    :param dp: Потрібно для регістрації help
-    """
-    dp.register_message_handler(help, commands=["start", "help"])
