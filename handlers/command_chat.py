@@ -1,7 +1,7 @@
 from aiogram import Router, types, F
-from aiogram.dispatcher.fsm.context import FSMContext
+from aiogram.fsm.context import FSMContext
 from aiogram.enums.parse_mode import ParseMode
-from openai import OpenAI
+from openai import AsyncOpenAI
 import translators.server as tss
 
 from keyboards.chat import keyboard
@@ -12,9 +12,9 @@ import config
 router = Router()
 
 async def answer_chat(text):
-    client = OpenAI(api_key=config.OPENAI_TOKEN)
+    client = AsyncOpenAI(api_key=config.OPENAI_TOKEN)
     try:
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": config.SYSTEM_MESSAGE},

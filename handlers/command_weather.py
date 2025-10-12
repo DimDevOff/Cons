@@ -61,7 +61,7 @@ def get_weather(city):
             return text
         except Exception as e:
             return f"Вибачте але сталася помилка!\nСпробуйте пізніше або зверніться до автора.\n{e}"
-    elif weather_result["cod"] == "404":
+    elif weather_result["cod"] == 404:
         return "Вибачте!\nНе вдалося получити дані про місто."
     else:
         return "Вибачте!\nСталася не відома помилка."

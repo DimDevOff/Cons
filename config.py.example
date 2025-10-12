@@ -1,0 +1,22 @@
+# Токен вашого OpenAI API
+OPENAI_TOKEN = ""
+
+# Системне повідомлення для GPT
+SYSTEM_MESSAGE = "You are a helpful assistant."
+
+# Список ID користувачів, які мають преміум-доступ
+PREMIUM_USERS = [
+    # 123456789,
+]
+
+# ID адміністратора бота
+ADMIN_ID = 0  # 123456789
+
+# Токен для API погоди (наприклад, з OpenWeatherMap)
+WEATHER_TOKEN = ""
+
+# Слова для фільтрації повідомлень (будуть видалені)
+FILTER_WORDS = [
+    # "слово1",
+    # "слово2",
+]
