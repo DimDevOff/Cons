@@ -10,7 +10,10 @@ from handlers import command_report, command_start_help, command_translator, com
 
 logging.basicConfig(level=logging.INFO)
 
+from middlewares.throttling import ThrottlingMiddleware
+
 async def main():
+    dp.message.middleware(ThrottlingMiddleware())
     dp.include_router(command_report.router)
     dp.include_router(command_start_help.router)
     dp.include_router(command_translator.router)

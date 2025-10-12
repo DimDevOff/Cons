@@ -1,7 +1,8 @@
+import logging
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.enums.parse_mode import ParseMode
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, RateLimitError, APIError
 import translators.server as tss
 
 from keyboards.chat import keyboard
@@ -23,14 +24,17 @@ async def answer_chat(text):
             top_p=1,
             max_tokens=500
         )
-        return response.choices[0].message.content.replace("```", "**")
-    
+        return response.choices[0].message.content.replace("`", "*")
+
+    except RateLimitError:
+        logging.warning("OpenAI API rate limit exceeded.")
+        return "Вибачте, досягнуто ліміту запитів до OpenAI. Спробуйте пізніше."
+    except APIError as ex:
+        logging.error(f"OpenAI API error: {ex}")
+        return "Вибачте, сталася помилка на стороні OpenAI. Спробуйте пізніше."
     except Exception as ex:
-        if "That model is currently overloaded with other requests." in str(ex):
-            return "Вибачте але зараз сервери перегруженні і вони не відповідають на запити."
-        else:
-            return f"Вибачте але зараз виникла невідома помилка.\n" \
-                   f"Спробуйте повторити питання пізніше.\nОпис помилки: {ex}"
+        logging.error(f"An unexpected error occurred in answer_chat: {ex}")
+        return "Вибачте, сталася невідома помилка. Спробуйте повторити запит пізніше."
     
 
 @router.callback_query(F.data == "delete")
@@ -51,15 +55,22 @@ async def chat(message: types.Message, state: FSMContext):
     chat_id = message.chat.id
     if message.text.lower() == "вийти":
         await state.clear()
+        await message.reply("Ви вийшли з режиму чату.")
+        return
+
+    if len(message.text) > 2000:
+        await message.reply("Ваше повідомлення занадто довге. Будь ласка, надішліть повідомлення до 2000 символів.")
+        return
     else:
-        await bot.send_message(chat_id=chat_id, text="Зачекайте будь ласка, це може зайнняти деякий час.")
+        processing_message = await bot.send_message(chat_id=chat_id, text="Зачекайте будь ласка, це може зайнняти деякий час.")
         answer = await answer_chat(message.text)
         try:
-            await bot.edit_message_text(chat_id=chat_id, message_id=message.message_id + 1, text=answer,
+            await bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=answer,
                                         reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
-            await state.clear()
-        except:
+        except Exception:
+            await bot.delete_message(chat_id=chat_id, message_id=processing_message.message_id)
             await bot.send_message(chat_id=chat_id, text=answer, reply_markup=keyboard)
+        finally:
             await state.clear()
 
 

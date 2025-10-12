@@ -2,11 +2,14 @@
 Файл для обробки репортів
 File for processing reports
 """
+import logging
 from aiogram import types, Router
 from aiogram.filters import Command
+from aiogram.exceptions import TelegramBadRequest
 
 from create_bot import bot
 from config import ADMIN_ID
+from utils import sanitize_html
 
 router = Router()
 
@@ -20,19 +23,25 @@ async def report_command1(message: types.Message):
     """
     if message.chat.id < 0:
         await message.reply(text="Репорт надішлений! (або рекомендація)")
-        await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {message.from_user.full_name} робить репорт\n"
+        user_full_name = sanitize_html(message.from_user.full_name)
+        report_text = sanitize_html(message.text)
+        await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {user_full_name} робить репорт\n"
                                                         f"url={message.url}\n"
-                                                        f"Текст повідомлення= {message.text}")
+                                                        f"Текст повідомлення= {report_text}")
     else:
         await message.reply(text="Тут немає людей (хіба ви написали рекомендацію)")
+        user_full_name = sanitize_html(message.from_user.full_name)
+        report_text = sanitize_html(message.text)
         try:
-            await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {message.from_user.full_name} робить репорт\n"
+            await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {user_full_name} робить репорт\n"
                                                             f"url={message.url}\n"
-                                                            f"Текст повідомлення= {message.text}")
-        except:
-            await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {message.from_user.full_name} робить репорт\n"
-                                                        f"Приватне повідомлення\n"
-                                                        f"Текст повідомлення= {message.text}")
+                                                            f"Текст повідомлення= {report_text}")
+        except TelegramBadRequest:
+            await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {user_full_name} робить репорт\n"
+                                                            f"Приватне повідомлення\n"
+                                                            f"Текст повідомлення= {report_text}")
+        except Exception as e:
+            logging.error(f"Error sending report from private message: {e}")
 
 
 @router.message(Command("report", prefix="!"))
@@ -43,11 +52,22 @@ async def report_command2(message: types.Message):
     """
     if message.chat.id < 0:
         await message.reply(text="Репорт надішлений! (або рекомендація)")
-        await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {message.from_user.full_name} робить репорт\n"
+        user_full_name = sanitize_html(message.from_user.full_name)
+        report_text = sanitize_html(message.text)
+        await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {user_full_name} робить репорт\n"
                                                         f"{message.url}"
-                                                        f"Текст повідомлення= {message.text}")
+                                                        f"Текст повідомлення= {report_text}")
     else:
         await message.reply(text="Тут немає людей (хіба ви написали рекомендацію)")
-        await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {message.from_user.full_name} робить репорт\n"
-                                                        f"{message.url}"
-                                                        f"Текст повідомлення= {message.text}")
+        user_full_name = sanitize_html(message.from_user.full_name)
+        report_text = sanitize_html(message.text)
+        try:
+            await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {user_full_name} робить репорт\n"
+                                                            f"url={message.url}\n"
+                                                            f"Текст повідомлення= {report_text}")
+        except TelegramBadRequest:
+            await bot.send_message(chat_id=ADMIN_ID[0], text=f"Користувач {user_full_name} робить репорт\n"
+                                                            f"Приватне повідомлення\n"
+                                                            f"Текст повідомлення= {report_text}")
+        except Exception as e:
+            logging.error(f"Error sending report from private message: {e}")

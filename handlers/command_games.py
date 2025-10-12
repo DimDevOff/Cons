@@ -51,13 +51,12 @@ async def game_guess_number(message: types.Message, state: FSMContext):
     message_text = message.text
     random_number = randint(-10, 10)
     try:
-        int(message_text)
-
-        if int(message_text) == random_number:
+        user_number = int(message_text)
+        if user_number == random_number:
             await bot.send_message(chat_id=chat_id, text="Ви вгадали загадане число!")
         else:
             await bot.send_message(chat_id=chat_id, text="Не вгадав!")
-    except:
+    except ValueError:
         if message_text.lower() == "вийти":
             await bot.send_message(chat_id=chat_id, text="Ви вийшли!")
             await state.clear()
@@ -76,18 +75,18 @@ async def game_rock_paper_scissors(message: types.Message, state: FSMContext):
             await state.clear()
         case _:
             try:
-                int(message_text)
-                await bot.send_message(chat_id=chat_id, text=game_rock_paper_scissors_work(message_text, random_object))
-            except:
+                user_choice = int(message_text)
+                await bot.send_message(chat_id=chat_id, text=game_rock_paper_scissors_work(user_choice, random_object))
+            except ValueError:
                 await bot.send_message(chat_id=chat_id, text="Пишіть число або щоб вийти напишіть \"Вийти\"\n"
                                                              "Виберіть число:\n1 - камінь\n2 - ножниці\n3 - папір")
 
 
-def game_rock_paper_scissors_work(message_text, random_object):
-    if int(message_text) == random_object:
+def game_rock_paper_scissors_work(user_choice, random_object):
+    if user_choice == random_object:
         return "Нічія!"
     else:
-        match int(message_text):
+        match user_choice:
             case 1:
                 match random_object:
                     case 2:
