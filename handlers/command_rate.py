@@ -1,10 +1,11 @@
 import requests
 import json
 
-from aiogram import Dispatcher, types
+from aiogram import Router, types
 
 from create_bot import bot
 
+router = Router()
 
 def get_rate():
     r = requests.get(url=f"https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5")
@@ -17,12 +18,9 @@ def get_rate():
     return rate
 
 
+@router.message(commands=["rate"])
 async def rate(message: types.Message):
     chat_id = message.chat.id
     await bot.send_message(chat_id=chat_id, text="Секунду...")
     await bot.delete_message(chat_id=chat_id, message_id=message.message_id+1)
     await bot.send_message(chat_id=chat_id, text="Ця інформація взята з офіційного API ПриватБанку\n" + get_rate())
-
-
-def register_handler_rate(dp: Dispatcher):
-    dp.register_message_handler(rate, commands=["rate"])

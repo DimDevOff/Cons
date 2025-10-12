@@ -2,23 +2,25 @@
 Файл для запуску бота
 The file for starting the bot
 """
+import asyncio
 import logging
 
-from aiogram.utils import executor
-
-from create_bot import dp
-from handlers import *
+from create_bot import dp, bot
+from handlers import command_report, command_start_help, command_translator, command_weather, command_games, command_rate, command_chat, command_save_open
 
 logging.basicConfig(level=logging.INFO)
 
-command_report.register_handler_report(dp)
-command_start_help.register_handler_help(dp)
-command_translator.register_handler_translation(dp)
-command_weather.register_handler_weather(dp)
-command_games.register_handler_games(dp)
-command_rate.register_handler_rate(dp)
-command_chat.register_handler_chat(dp)
-command_save_open.register_handler_command_save_open(dp)
+async def main():
+    dp.include_router(command_report.router)
+    dp.include_router(command_start_help.router)
+    dp.include_router(command_translator.router)
+    dp.include_router(command_weather.router)
+    dp.include_router(command_games.router)
+    dp.include_router(command_rate.router)
+    dp.include_router(command_chat.router)
+    dp.include_router(command_save_open.router)
+
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
+    asyncio.run(main())

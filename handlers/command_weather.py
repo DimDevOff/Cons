@@ -4,40 +4,40 @@
 import requests
 import json
 
-from aiogram import Dispatcher, types
-from aiogram.dispatcher import FSMContext
+from aiogram import Router, types
+from aiogram.fsm.context import FSMContext
+from aiogram.filters import Command
 import translators.server as tss
 
 import config
 from create_bot import bot
 from states.weather import Weather
 
+router = Router()
 
-async def weather(message: types.Message):
+@router.message(Command("weather", prefix="/"))
+async def weather(message: types.Message, state: FSMContext):
     """
-    Головна функція яка включається, коли користувач пише </weather> або </weather !>
+    Головна функція яка включається, коли користувач пише </weather>
     """
-    global weather_json
-    global error
     chat_id = message.chat.id
     user_id = message.from_user.id
-    if message.text == "/weather !":
+    try:
+        with open("json/weather.json", 'r') as weather_file:
+            weather_json = json.load(weather_file)
+        await bot.send_message(chat_id=chat_id, text=get_weather(weather_json[str(user_id)]))
+    except (FileNotFoundError, KeyError):
         await bot.send_message(chat_id=chat_id, text="Напишіть назву міста за замовчуванням")
-        await Weather.city.set()
-    else:
-        try:
-            with open("json/weather.json", 'r') as weather:
-                weather_json = json.load(weather)
-            error = False
-        except:
-            await bot.send_message(chat_id=chat_id, text="Напишіть назву міста за замовчуванням")
-            error = True
-            await Weather.city.set()
-        finally:
-            if error:
-                pass
-            else:
-                await bot.send_message(chat_id=chat_id, text=get_weather(weather_json[str(user_id)]))
+        await state.set_state(Weather.city)
+
+@router.message(Command("weather", prefix="!"))
+async def weather_change_city(message: types.Message, state: FSMContext):
+    """
+    Головна функція яка включається, коли користувач пише </weather !>
+    """
+    chat_id = message.chat.id
+    await bot.send_message(chat_id=chat_id, text="Напишіть назву міста за замовчуванням")
+    await state.set_state(Weather.city)
 
 
 def get_weather(city):
@@ -45,47 +45,48 @@ def get_weather(city):
                          f"&units=metric")
 
     weather_result = r.json()
-    match int(weather_result["cod"]):
-        case 200:
-            try:
-                city_name = weather_result["name"]
-                humidity = weather_result["main"]["humidity"]
-                weather = tss.google(weather_result["weather"][0]["description"], to_language="uk")
-                temp = weather_result["main"]["temp"]
-                wind_speed = weather_result["wind"]["speed"]
-                text = f"Місто: {city_name}\n" \
-                    f"Вологість: {humidity}%\n" \
-                    f"Погода: {weather}\n" \
-                    f"Температура: {temp}°C\n" \
-                    f"Швидкість вітру: {wind_speed}"
-                        
-                return text
-            except Exception as e:
-                return f"Вибачте але сталася помилка!\nСпробуйте пізніше або зверніться до автора.\n{e}"
-        case 404:
-            return "Вибачте!\nНе вдалося получити дані про місто."
-        case _:
-            print(type(weather_result["cod"]))
-            print(weather_result["cod"])
-            return "Вибачте!\nСталася не відома помилка."
+    if weather_result["cod"] == 200:
+        try:
+            city_name = weather_result["name"]
+            humidity = weather_result["main"]["humidity"]
+            weather = tss.google(weather_result["weather"][0]["description"], to_language="uk")
+            temp = weather_result["main"]["temp"]
+            wind_speed = weather_result["wind"]["speed"]
+            text = f"Місто: {city_name}\n" \
+                f"Вологість: {humidity}%\n" \
+                f"Погода: {weather}\n" \
+                f"Температура: {temp}°C\n" \
+                f"Швидкість вітру: {wind_speed}"
+
+            return text
+        except Exception as e:
+            return f"Вибачте але сталася помилка!\nСпробуйте пізніше або зверніться до автора.\n{e}"
+    elif weather_result["cod"] == "404":
+        return "Вибачте!\nНе вдалося получити дані про місто."
+    else:
+        return "Вибачте!\nСталася не відома помилка."
 
 
+@router.message(Weather.city)
 async def choose_city(message: types.Message, state: FSMContext):
-    global city
     chat_id = message.chat.id
     await bot.send_message(chat_id=chat_id, text="Секунду...")
     if message.text == "Гусятин":
         city = "Husiatyn"
     else:
         city = tss.google(message.text, to_language='en')
-    with open("json/weather.json", 'w') as weather:
-        json.dump({message.from_user.id: city}, weather, ensure_ascii=False)
     
+    try:
+        with open("json/weather.json", 'r') as weather_file:
+            weather_json = json.load(weather_file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        weather_json = {}
+
+    weather_json[str(message.from_user.id)] = city
+
+    with open("json/weather.json", 'w') as weather_file:
+        json.dump(weather_json, weather_file, ensure_ascii=False, indent=4)
+
     await bot.send_message(chat_id=chat_id, text=get_weather(city))
-    
-    await state.finish()
 
-
-def register_handler_weather(dp: Dispatcher):
-    dp.register_message_handler(weather, commands=["weather"])
-    dp.register_message_handler(choose_city, state=Weather.city)
+    await state.clear()
