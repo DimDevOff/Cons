@@ -46,45 +46,52 @@ async def save_open(message: types.Message):
     file is read and the saved text is taken based on the key (that is, the user ID)
     """
     
+    import os
+
     chat_id = message.chat.id
-    user_id = message.from_user.id
+    user_id = str(message.from_user.id)
     message_text = message.text.split()
+
+    json_dir = "json"
+    if not os.path.exists(json_dir):
+        os.makedirs(json_dir)
+    saves_file_path = os.path.join(json_dir, "saves_texts.json")
+
     match message_text:
         case ["@open"]:
             try:
-                with open("json/saves_texts.json", "r") as open_file:
-                    open_file = json.load(open_file)
-                    await message.reply(text=open_file[str(user_id)])
-            except:
+                with open(saves_file_path, "r", encoding="utf-8") as f:
+                    saved_data = json.load(f)
+                    if user_id in saved_data:
+                        await message.reply(text=saved_data[user_id])
+                    else:
+                        await message.reply(text="Ви ще нічого не зберегли.")
+            except FileNotFoundError:
+                await message.reply(text="Ви ще нічого не зберегли.")
+            except Exception as e:
+                logging.error(f"Error reading {saves_file_path}: {e}")
                 await message.reply(text="Сталась помилка!")
 
         case ["@save", *text]:
             # збереження тексту у save_text
             save_text = " ".join(text)
-            # Створення словника з user_id як ключ до save_text
-            user_and_text = {str(user_id): save_text}
-            global error
+
             # Спробувати прочитати файл saves_texts
             try:
-                with open("json/saves_texts.json", "r") as saves_texts:
-                    saves_texts = json.load(saves_texts)
-                error = False
-            except FileNotFoundError:
-                error = True
-            finally:
-                if error:
-                    with open("json/saves_texts.json", "w") as saves_texts:
-                        json.dump(user_and_text, saves_texts)
-                    await message.reply(text="Текст збережено!")
-                else:
-                    try:
-                        saves_texts[user_id] = user_and_text[user_id]
-                    except (NameError, KeyError):
-                        saves_texts.update(user_and_text)
-                    finally:
-                        with open("json/saves_texts.json", "w") as file:
-                            json.dump(saves_texts, file)
-                        await message.reply(text="Текст збережено!")
+                with open(saves_file_path, "r", encoding="utf-8") as f:
+                    saves_data = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                saves_data = {}
+
+            saves_data[user_id] = save_text
+
+            try:
+                with open(saves_file_path, "w", encoding="utf-8") as f:
+                    json.dump(saves_data, f, ensure_ascii=False, indent=4)
+                await message.reply(text="Текст збережено!")
+            except Exception as e:
+                logging.error(f"Error writing to {saves_file_path}: {e}")
+                await message.reply(text="Не вдалося зберегти текст.")
     message_text = message.text.lower().split()
     for word in cnf.WORDS:
         if word in message_text:

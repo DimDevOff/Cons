@@ -2,8 +2,7 @@ import requests
 import json
 
 from aiogram import Router, types
-
-from create_bot import bot
+from aiogram.filters import Command
 
 router = Router()
 
@@ -18,9 +17,8 @@ def get_rate():
     return rate
 
 
-@router.message(commands=["rate"])
+@router.message(Command("rate"))
 async def rate(message: types.Message):
-    chat_id = message.chat.id
-    await bot.send_message(chat_id=chat_id, text="Секунду...")
-    await bot.delete_message(chat_id=chat_id, message_id=message.message_id+1)
-    await bot.send_message(chat_id=chat_id, text="Ця інформація взята з офіційного API ПриватБанку\n" + get_rate())
+    loading_msg = await message.answer(text="Секунду...")
+    await loading_msg.delete()
+    await message.answer(text="Ця інформація взята з офіційного API ПриватБанку\n" + get_rate())
