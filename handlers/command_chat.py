@@ -6,7 +6,6 @@ from openai import AsyncOpenAI, RateLimitError, APIError
 import translators.server as tss
 
 from keyboards.chat import keyboard
-from create_bot import bot
 from states.chat import Chat
 import config
 
@@ -39,20 +38,17 @@ async def answer_chat(text):
 
 @router.callback_query(F.data == "delete")
 async def delete(callback_query: types.CallbackQuery):
-    await bot.delete_message(chat_id=callback_query.message.chat.id, message_id=callback_query.message.message_id)
+    await callback_query.message.delete()
 
 
 @router.callback_query()
 async def continue_chat(callback_query: types.CallbackQuery, state: FSMContext):
-    await bot.edit_message_text(chat_id=callback_query.message.chat.id,
-                                message_id=callback_query.message.message_id,
-                                text=callback_query.message.text + "\n\nДобре задавайте своє питання.")
+    await callback_query.message.edit_text(text=callback_query.message.text + "\n\nДобре задавайте своє питання.")
     await state.set_state(Chat.warning_and_start_chat)
 
 
 @router.message(Chat.warning_and_start_chat)
 async def chat(message: types.Message, state: FSMContext):
-    chat_id = message.chat.id
     if message.text.lower() == "вийти":
         await state.clear()
         await message.reply("Ви вийшли з режиму чату.")
@@ -62,31 +58,27 @@ async def chat(message: types.Message, state: FSMContext):
         await message.reply("Ваше повідомлення занадто довге. Будь ласка, надішліть повідомлення до 2000 символів.")
         return
     else:
-        processing_message = await bot.send_message(chat_id=chat_id, text="Зачекайте будь ласка, це може зайнняти деякий час.")
+        processing_message = await message.answer(text="Зачекайте будь ласка, це може зайнняти деякий час.")
         answer = await answer_chat(message.text)
         try:
-            await bot.edit_message_text(chat_id=chat_id, message_id=processing_message.message_id, text=answer,
-                                        reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+            await processing_message.edit_text(text=answer, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
         except Exception:
-            await bot.delete_message(chat_id=chat_id, message_id=processing_message.message_id)
-            await bot.send_message(chat_id=chat_id, text=answer, reply_markup=keyboard)
+            await processing_message.delete()
+            await message.answer(text=answer, reply_markup=keyboard)
         finally:
             await state.clear()
 
 
-@router.message(commands=["chat"])
+@router.message(Command("chat"))
 async def warning_and_start_chat(message: types.Message, state: FSMContext):
-    chat_id = message.chat.id
     user_id = message.from_user.id
     if user_id in config.PREMIUM_USERS:
-        await bot.send_message(chat_id=chat_id,
-                               text="ПОПЕРЕДЖЕННЯ!\n"
-                                    "Офіційний API який використовує автор є чуть-чуть глюканутий.\n"
-                                    "А саме GPT може відповідати не правильно, криво і так далі.\n"
-                                    "То вам рекомендується формулювати свої питання по різному.\n"
-                                    "Добре задавайте своє питання.")
+        await message.answer(text="ПОПЕРЕДЖЕННЯ!\n"
+                                  "Офіційний API який використовує автор є чуть-чуть глюканутий.\n"
+                                  "А саме GPT може відповідати не правильно, криво і так далі.\n"
+                                  "То вам рекомендується формулювати свої питання по різному.\n"
+                                  "Добре задавайте своє питання.")
         await state.set_state(Chat.warning_and_start_chat)
     else:
-        await bot.send_message(chat_id=chat_id,
-                               text="Вибачте але ви не в списку преміум користувачів!\n"
-                                    "Зверніться до автора щоб вас додали до цього списку.")
+        await message.answer(text="Вибачте але ви не в списку преміум користувачів!\n"
+                                  "Зверніться до автора щоб вас додали до цього списку.")

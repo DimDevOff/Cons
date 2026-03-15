@@ -12,7 +12,6 @@ from aiogram.filters import Command
 import translators.server as tss
 
 import config
-from create_bot import bot
 from states.weather import Weather
 from utils import sanitize_html
 
@@ -23,14 +22,13 @@ async def weather(message: types.Message, state: FSMContext):
     """
     Головна функція яка включається, коли користувач пише </weather>
     """
-    chat_id = message.chat.id
     user_id = message.from_user.id
     try:
         with open("json/weather.json", 'r') as weather_file:
             weather_json = json.load(weather_file)
-        await bot.send_message(chat_id=chat_id, text=get_weather(weather_json[str(user_id)]))
+        await message.answer(text=get_weather(weather_json[str(user_id)]))
     except (FileNotFoundError, KeyError):
-        await bot.send_message(chat_id=chat_id, text="Напишіть назву міста за замовчуванням")
+        await message.answer(text="Напишіть назву міста за замовчуванням")
         await state.set_state(Weather.city)
 
 @router.message(Command("weather", prefix="!"))
@@ -38,8 +36,7 @@ async def weather_change_city(message: types.Message, state: FSMContext):
     """
     Головна функція яка включається, коли користувач пише </weather !>
     """
-    chat_id = message.chat.id
-    await bot.send_message(chat_id=chat_id, text="Напишіть назву міста за замовчуванням")
+    await message.answer(text="Напишіть назву міста за замовчуванням")
     await state.set_state(Weather.city)
 
 
@@ -80,8 +77,7 @@ async def choose_city(message: types.Message, state: FSMContext):
         await message.reply("Назва міста занадто довга. Будь ласка, введіть назву до 100 символів.")
         return
 
-    chat_id = message.chat.id
-    await bot.send_message(chat_id=chat_id, text="Секунду...")
+    loading_msg = await message.answer(text="Секунду...")
 
     if city_name == "Гусятин":
         city_for_api = "Husiatyn"
@@ -106,5 +102,6 @@ async def choose_city(message: types.Message, state: FSMContext):
     with open(weather_file_path, 'w', encoding='utf-8') as weather_file:
         json.dump(weather_json, weather_file, ensure_ascii=False, indent=4)
 
-    await bot.send_message(chat_id=chat_id, text=get_weather(city_for_api))
+    await loading_msg.delete()
+    await message.answer(text=get_weather(city_for_api))
     await state.clear()
